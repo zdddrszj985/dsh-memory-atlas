@@ -31,7 +31,7 @@ import { createRunner } from './lib/jobs.mjs'
 export const name = 'memory-atlas'
 export const inject = ['webServer', 'tools']
 
-const VERSION = '0.1.1'
+const VERSION = '0.1.2'
 const ROUTE = '/api/memory-atlas'
 const STORE = () => path.join(homedir(), '.dsh', 'memory-atlas')
 const CONFIG_FILE = () => path.join(STORE(), 'config.json')

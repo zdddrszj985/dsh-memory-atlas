@@ -1,6 +1,6 @@
 {
   "name": "dsh-memory-atlas",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "把 DSH 会话整理成按天存档的长期记忆：记忆卡、日记、原始对话，以及可缩放的记忆图谱。",
   "keywords": [
     "dsh",

@@ -127,13 +127,18 @@ window.__ModuleLoader__.load({
       '.ma-section .desc{color:var(--dsw-alias-label-tertiary,#8a8f98);font-size:11.5px;margin-bottom:14px}',
       '.ma-path{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:11.5px;background:var(--dsw-alias-bg-layer-2,#f3f4f6);border-radius:6px;padding:6px 8px;word-break:break-all}',
       '.ma-graphwrap{position:relative;height:min(66vh,620px);min-height:380px;border:1px solid var(--dsw-alias-border-l1,rgba(0,0,0,.07));border-radius:14px;background:var(--dsw-alias-bg-layer-1,#fff);overflow:hidden}',
+      '.ma-graphwrap.three{height:min(70vh,660px)}',
       '.ma-graphwrap:before{content:"";position:absolute;inset:0;background-image:radial-gradient(circle at 1px 1px,rgba(120,125,140,.14) 1px,transparent 0);background-size:22px 22px;pointer-events:none}',
-      '.ma-svg{display:block;width:100%;height:100%;cursor:grab;touch-action:none}',
+      '.ma-svg,.ma-canvas{display:block;width:100%;height:100%;cursor:grab;touch-action:none}',
+      '.ma-canvas{position:absolute;inset:0}',
+      '.ma-canvas.drag,.ma-svg.drag{cursor:grabbing}',
       '.ma-svg.drag{cursor:grabbing}',
       '.ma-node{cursor:pointer}',
       '.ma-tip{position:absolute;z-index:5;max-width:280px;pointer-events:none;background:var(--dsw-alias-bg-layer-3,#1f2230);color:#fff;border-radius:8px;padding:7px 9px;font-size:11.5px;box-shadow:0 8px 24px rgba(0,0,0,.24);line-height:1.45}',
       '.ma-tip b{display:block;font-size:12px;margin-bottom:2px}',
-      '.ma-zoom{position:absolute;right:10px;top:10px;display:flex;flex-direction:column;gap:5px;z-index:2}',
+      '.ma-mode{position:absolute;right:10px;top:10px;z-index:4;box-shadow:0 2px 10px rgba(30,34,60,.08)}',
+      '.ma-zoom{position:absolute;right:10px;top:46px;display:flex;flex-direction:column;gap:5px;z-index:3}',
+      '.ma-hint{position:absolute;right:12px;bottom:9px;z-index:2;font-size:10.5px;color:var(--dsw-alias-label-tertiary,#8a8f98);pointer-events:none;padding:2px 4px}',
       '.ma-zoom button{width:28px;height:28px;border-radius:7px;border:1px solid var(--dsw-alias-border-l1,rgba(0,0,0,.1));background:var(--dsw-alias-bg-layer-1,#fff);color:inherit;cursor:pointer;font-size:14px;line-height:1}',
       '.ma-legend{position:absolute;left:10px;bottom:8px;display:flex;gap:10px;flex-wrap:wrap;max-width:70%;font-size:10.5px;color:var(--dsw-alias-label-tertiary,#8a8f98);z-index:2}',
       '.ma-legend i{display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:3px}',
@@ -147,16 +152,18 @@ window.__ModuleLoader__.load({
       '.ma-stats b{font-size:20px;font-weight:650;font-variant-numeric:tabular-nums}',
       '.ma-stats span{font-size:10.5px;color:var(--dsw-alias-label-tertiary,#8a8f98)}',
       '.ma-toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);z-index:1200;background:var(--dsw-alias-bg-layer-3,#242734);color:#fff;padding:8px 14px;border-radius:9px;font-size:12px;box-shadow:0 10px 30px rgba(0,0,0,.25);max-width:80vw}',
-      '@media (max-width:720px){.ma-grid{grid-template-columns:1fr}.ma-side{position:static;flex-direction:row;overflow:auto}.ma-head{padding:14px 16px 10px}.ma-body{padding:14px 16px}.ma-tabs{padding:6px 16px 0}.ma-search{width:140px}}',
+      '@media (max-width:720px){.ma-grid{grid-template-columns:1fr}.ma-side{position:static;flex-direction:row;overflow:auto}.ma-head{padding:14px 16px 10px}.ma-body{padding:14px 16px}.ma-tabs{padding:6px 16px 0}.ma-search{width:140px}.ma-hint{display:none}}',
     ].join('\n')
 
     function ensureCss() {
       if (typeof document === 'undefined') return
-      if (document.getElementById('dsh-memory-atlas-css')) return
-      const tag = document.createElement('style')
-      tag.id = 'dsh-memory-atlas-css'
-      tag.textContent = CSS
-      document.head.appendChild(tag)
+      let tag = document.getElementById('dsh-memory-atlas-css')
+      if (!tag) {
+        tag = document.createElement('style')
+        tag.id = 'dsh-memory-atlas-css'
+        document.head.appendChild(tag)
+      }
+      if (tag.textContent !== CSS) tag.textContent = CSS
     }
 
     function Icon(props) {
@@ -220,7 +227,770 @@ window.__ModuleLoader__.load({
       )
     }
 
+    /* ATLAS3D-CORE-START */
+    function a3clamp(n, a, b) { return Math.max(a, Math.min(b, n)) }
+
+    function a3mix(hex, target, t) {
+      const a = String(hex || '#6d7cf6').replace('#', '')
+      const b = String(target || '#ffffff').replace('#', '')
+      const pa = [parseInt(a.slice(0, 2), 16) || 0, parseInt(a.slice(2, 4), 16) || 0, parseInt(a.slice(4, 6), 16) || 0]
+      const pb = [parseInt(b.slice(0, 2), 16) || 0, parseInt(b.slice(2, 4), 16) || 0, parseInt(b.slice(4, 6), 16) || 0]
+      const c = pa.map(function (v, i) { return Math.round(v + (pb[i] - v) * t) })
+      return 'rgb(' + c[0] + ',' + c[1] + ',' + c[2] + ')'
+    }
+
+    function a3hash(s) {
+      let h = 2166136261
+      for (let i = 0; i < s.length; i++) {
+        h ^= s.charCodeAt(i)
+        h = Math.imul(h, 16777619)
+      }
+      return h >>> 0
+    }
+
+    function a3rand(seed) {
+      let n = seed >>> 0
+      return function () {
+        n = (n + 0x6D2B79F5) >>> 0
+        let t = Math.imul(n ^ (n >>> 15), 1 | n)
+        t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t
+        return ((t ^ (t >>> 14)) >>> 0) / 4294967296
+      }
+    }
+
+    function a3project(p, cam, w, h) {
+      const cy = Math.cos(cam.yaw)
+      const sy = Math.sin(cam.yaw)
+      const cp = Math.cos(cam.pitch)
+      const sp = Math.sin(cam.pitch)
+      const x1 = p.x * cy + p.z * sy
+      const z1 = -p.x * sy + p.z * cy
+      const y1 = p.y * cp - z1 * sp
+      const z2 = p.y * sp + z1 * cp
+      const d = Math.max(2.8, cam.dist)
+      const f = Math.min(w * 0.66, h * 1.12)
+      const k = f / Math.max(0.35, d - z2)
+      return { x: w * 0.5 + x1 * k, y: h * 0.49 - y1 * k, z: z2, k: k }
+    }
+
+    function a3circle(ctx, radius, y, plane, cam, w, h) {
+      ctx.beginPath()
+      for (let i = 0; i <= 96; i++) {
+        const a = (i / 96) * Math.PI * 2
+        const p = plane === 'xy'
+          ? { x: Math.cos(a) * radius, y: Math.sin(a) * radius, z: 0 }
+          : { x: Math.cos(a) * radius, y: y, z: Math.sin(a) * radius }
+        const s = a3project(p, cam, w, h)
+        if (i === 0) ctx.moveTo(s.x, s.y)
+        else ctx.lineTo(s.x, s.y)
+      }
+      ctx.closePath()
+    }
+
+    function atlas3dLayout(data) {
+      // 六章在空间里错落成上下两层，远近距离不同；转动时才有前后遮挡的立体感。
+      // [x, y, z] 是按默认相机调过的世界坐标，不追求几何对称。
+      const ANCHORS = [
+        [0.51, 1.45, -0.74],
+        [1.33, 0.72, 1.33],
+        [0.78, -0.82, 1.87],
+        [0.28, -1.42, -0.41],
+        [-1.92, -0.78, -0.47],
+        [-0.93, 0.80, -1.48],
+      ]
+      const chapters = (data.chapters || []).map(function (c, i) {
+        const a = ANCHORS[i] || [Math.cos(i * Math.PI / 3) * 1.8, 0.4, Math.sin(i * Math.PI / 3) * 1.8]
+        return Object.assign({}, c, {
+          ax: a[0],
+          ay: a[1],
+          az: a[2],
+          count: (c.entries || []).length,
+        })
+      })
+      const nodes = []
+      chapters.forEach(function (c, ci) {
+        const list = c.entries || []
+        const n = Math.max(1, list.length)
+        list.forEach(function (e, j) {
+          const rnd = a3rand(a3hash(String(e.title || '') + '|' + String(e.date || '') + '|' + ci))
+          const theta = rnd() * Math.PI * 2
+          const phi = Math.acos(a3clamp(2 * rnd() - 1, -1, 1))
+          const rr = (0.24 + 0.82 * Math.cbrt((j + 0.6) / n)) * (0.9 + 0.2 * rnd())
+          nodes.push(Object.assign({}, e, {
+            key: 'e' + ci + '-' + j,
+            ci: ci,
+            chapter: c.name,
+            color: c.color,
+            imp: a3clamp(Number(e.importance) || 2, 1, 5),
+            x: c.ax + Math.sin(phi) * Math.cos(theta) * rr,
+            y: Math.max(-1.96, c.ay + Math.cos(phi) * rr * 0.86),
+            z: c.az + Math.sin(phi) * Math.sin(theta) * rr * 0.92,
+          }))
+        })
+      })
+      const raw = (data.diaries || []).slice().sort(function (a, b) { return String(a.date).localeCompare(String(b.date)) })
+      let days = raw
+      if (raw.length > 64) {
+        days = []
+        for (let i = 0; i < 64; i++) days.push(raw[Math.round(i * (raw.length - 1) / 63)])
+      }
+      const dayNodes = days.map(function (d, i) {
+        const a = -Math.PI / 2 + (i / Math.max(1, days.length)) * Math.PI * 2
+        return Object.assign({}, d, {
+          key: 'd' + i,
+          x: Math.cos(a) * 2.78,
+          y: -2.24 + Math.sin(a * 3.1) * 0.05,
+          z: Math.sin(a) * 2.78,
+        })
+      })
+      return { chapters: chapters, nodes: nodes, days: dayNodes, totalDays: raw.length }
+    }
+
+    function atlas3dPaint(ctx, opt) {
+      const layout = opt.layout
+      const cam = opt.cam
+      const w = Math.max(2, opt.width)
+      const h = Math.max(2, opt.height)
+      const theme = opt.theme || {}
+      const bg = theme.bg || '#ffffff'
+      const textColor = theme.text || '#1b1c1f'
+      const muted = theme.muted || '#8a8f98'
+      const q = String(opt.query || '').trim().toLowerCase()
+      const focus = String(opt.focus || '')
+      const hoverKey = String(opt.hoverKey || '')
+      const hits = []
+      const font = '-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif'
+
+      ctx.clearRect(0, 0, w, h)
+      const halo = ctx.createRadialGradient(w * 0.5, h * 0.47, 0, w * 0.5, h * 0.5, Math.max(w, h) * 0.74)
+      halo.addColorStop(0, 'rgba(109,124,246,.075)')
+      halo.addColorStop(0.55, 'rgba(155,109,224,.032)')
+      halo.addColorStop(1, 'rgba(109,124,246,0)')
+      ctx.fillStyle = halo
+      ctx.fillRect(0, 0, w, h)
+
+      const sr = a3rand(9173)
+      for (let i = 0; i < 68; i++) {
+        const u = sr(), v = sr(), rad = 2.7 + sr() * 2.1
+        const th = u * Math.PI * 2
+        const ph = Math.acos(2 * v - 1)
+        const p = { x: Math.sin(ph) * Math.cos(th) * rad, y: Math.cos(ph) * rad * 0.78, z: Math.sin(ph) * Math.sin(th) * rad }
+        const s = a3project(p, cam, w, h)
+        if (s.k <= 0 || s.k > 2400 || s.x < -20 || s.x > w + 20 || s.y < -20 || s.y > h + 20) continue
+        ctx.beginPath()
+        ctx.arc(s.x, s.y, 0.7 + sr() * 1.1, 0, Math.PI * 2)
+        ctx.fillStyle = i % 5 === 0 ? '#9b6de0' : '#6d7cf6'
+        ctx.globalAlpha = 0.04 + sr() * 0.13
+        ctx.fill()
+      }
+      ctx.globalAlpha = 1
+
+      const core = a3project({ x: 0, y: 0, z: 0 }, cam, w, h)
+      const coreR = Math.max(10, 0.42 * core.k)
+      const glow = ctx.createRadialGradient(core.x, core.y, 0, core.x, core.y, Math.max(32, coreR * 3.2))
+      glow.addColorStop(0, 'rgba(109,124,246,.26)')
+      glow.addColorStop(0.45, 'rgba(109,124,246,.10)')
+      glow.addColorStop(1, 'rgba(109,124,246,0)')
+      ctx.fillStyle = glow
+      ctx.beginPath()
+      ctx.arc(core.x, core.y, Math.max(32, coreR * 3.2), 0, Math.PI * 2)
+      ctx.fill()
+
+      // 地面轨道与投影：给悬浮的记忆一个可参照的“地板”，立体感主要来自这里。
+      const floorY = -2.24
+      ctx.save()
+      ctx.setLineDash([2, 8])
+      ;[1.05, 1.9, 2.78].forEach(function (rad, idx) {
+        a3circle(ctx, rad, floorY, 'xz', cam, w, h)
+        ctx.strokeStyle = idx === 2 ? '#6d7cf6' : '#9b6de0'
+        ctx.globalAlpha = idx === 2 ? 0.16 : 0.075
+        ctx.lineWidth = 1
+        ctx.stroke()
+      })
+      ctx.setLineDash([])
+      const foot = a3project({ x: 0, y: floorY, z: 0 }, cam, w, h)
+      ctx.beginPath()
+      ctx.moveTo(core.x, core.y + coreR * 0.9)
+      ctx.lineTo(foot.x, foot.y)
+      ctx.strokeStyle = '#6d7cf6'
+      ctx.globalAlpha = 0.10
+      ctx.lineWidth = 1
+      ctx.stroke()
+      const sh = ctx.createRadialGradient(foot.x, foot.y, 0, foot.x, foot.y, Math.max(40, coreR * 2.1))
+      sh.addColorStop(0, 'rgba(60,72,190,.10)')
+      sh.addColorStop(1, 'rgba(60,72,190,0)')
+      ctx.fillStyle = sh
+      ctx.beginPath()
+      ctx.ellipse(foot.x, foot.y, Math.max(40, coreR * 2.1), Math.max(12, coreR * 0.62), 0, 0, Math.PI * 2)
+      ctx.fill()
+      ctx.restore()
+
+      ctx.save()
+      ctx.setLineDash([3, 6])
+      a3circle(ctx, 0.84, 0, 'xz', cam, w, h)
+      ctx.strokeStyle = '#6d7cf6'
+      ctx.globalAlpha = 0.15
+      ctx.lineWidth = 1
+      ctx.stroke()
+      a3circle(ctx, 1.18, 0, 'xy', cam, w, h)
+      ctx.strokeStyle = '#9b6de0'
+      ctx.globalAlpha = 0.10
+      ctx.stroke()
+      a3circle(ctx, 2.78, -2.24, 'xz', cam, w, h)
+      ctx.strokeStyle = '#6d7cf6'
+      ctx.globalAlpha = 0.13
+      ctx.setLineDash([2, 7])
+      ctx.stroke()
+      ctx.restore()
+
+      layout.chapters.forEach(function (c) {
+        const p = a3project({ x: c.ax, y: c.ay, z: c.az }, cam, w, h)
+        ctx.beginPath()
+        ctx.moveTo(core.x, core.y)
+        ctx.lineTo(p.x, p.y)
+        ctx.strokeStyle = c.color
+        ctx.globalAlpha = 0.26
+        ctx.lineWidth = 1.1
+        ctx.stroke()
+      })
+
+      // 六章之间的空间环，虚线把散落的章节连成一个可旋转的星座。
+      ctx.save()
+      ctx.setLineDash([1, 7])
+      ctx.beginPath()
+      layout.chapters.forEach(function (c, i) {
+        const p = a3project({ x: c.ax, y: c.ay, z: c.az }, cam, w, h)
+        if (i === 0) ctx.moveTo(p.x, p.y)
+        else ctx.lineTo(p.x, p.y)
+      })
+      ctx.closePath()
+      ctx.strokeStyle = '#7c84a8'
+      ctx.globalAlpha = 0.12
+      ctx.lineWidth = 1
+      ctx.stroke()
+      ctx.restore()
+
+      // 每章垂到地面的虚线，用高度差把“悬浮”讲清楚。
+      ctx.save()
+      ctx.setLineDash([2, 6])
+      layout.chapters.forEach(function (c) {
+        const top = a3project({ x: c.ax, y: c.ay, z: c.az }, cam, w, h)
+        const base = a3project({ x: c.ax, y: floorY, z: c.az }, cam, w, h)
+        ctx.beginPath()
+        ctx.moveTo(top.x, top.y)
+        ctx.lineTo(base.x, base.y)
+        ctx.strokeStyle = c.color
+        ctx.globalAlpha = 0.13
+        ctx.lineWidth = 1
+        ctx.stroke()
+      })
+      ctx.restore()
+
+      layout.nodes.forEach(function (e) {
+        const c = layout.chapters[e.ci]
+        const a = a3project({ x: c.ax, y: c.ay, z: c.az }, cam, w, h)
+        const b = a3project(e, cam, w, h)
+        if (b.k <= 0 || b.k > 2400) return
+        let al = 0.10
+        if (focus && e.chapter !== focus) al = 0.02
+        if (q) {
+          const hay = (String(e.title || '') + ' ' + String(e.body || '') + ' ' + String(e.chapter || '') + ' ' + String(e.date || '')).toLowerCase()
+          if (hay.indexOf(q) < 0) al = 0.015
+        }
+        ctx.beginPath()
+        ctx.moveTo(a.x, a.y)
+        ctx.lineTo(b.x, b.y)
+        ctx.strokeStyle = e.color
+        ctx.globalAlpha = al
+        ctx.lineWidth = 0.7
+        ctx.stroke()
+      })
+      ctx.globalAlpha = 1
+
+      const nDays = layout.days.length
+      const labelEvery = Math.max(1, Math.ceil(nDays / 6))
+      layout.days.forEach(function (d, i) {
+        const p = a3project(d, cam, w, h)
+        if (p.k <= 0 || p.k > 2400) return
+        const cc = Math.min(Number(d.cardCount) || 0, 8)
+        const r = 2.0 + cc * 0.55
+        const dep = a3clamp((p.z + 2.1) / 4.2, 0, 1)
+        ctx.beginPath()
+        ctx.arc(p.x, p.y, r, 0, Math.PI * 2)
+        const dg = ctx.createRadialGradient(p.x - r * 0.3, p.y - r * 0.35, r * 0.05, p.x, p.y, r * 1.05)
+        dg.addColorStop(0, '#cdd3ff')
+        dg.addColorStop(0.5, '#7d8cf8')
+        dg.addColorStop(1, '#4f5fd8')
+        ctx.fillStyle = dg
+        ctx.globalAlpha = 0.45 + dep * 0.35 + cc * 0.02
+        ctx.fill()
+        ctx.beginPath()
+        ctx.arc(p.x, p.y, r, 0, Math.PI * 2)
+        ctx.strokeStyle = bg
+        ctx.globalAlpha = 0.6
+        ctx.lineWidth = 1
+        ctx.stroke()
+        hits.push({ key: d.key, type: 'day', x: p.x, y: p.y, r: r + 5, node: d })
+        if (i === 0 || i === nDays - 1 || i % labelEvery === 0) {
+          const label = String(d.date).slice(5)
+          ctx.font = '500 9px ' + font
+          ctx.textAlign = 'center'
+          ctx.textBaseline = 'top'
+          ctx.strokeStyle = bg
+          ctx.globalAlpha = 0.8
+          ctx.lineWidth = 2.6
+          ctx.strokeText(label, p.x, p.y + r + 7)
+          ctx.fillStyle = muted
+          ctx.globalAlpha = 0.9
+          ctx.fillText(label, p.x, p.y + r + 7)
+        }
+      })
+      ctx.globalAlpha = 1
+
+      function entryMatch(e) {
+        if (!q) return true
+        const hay = (String(e.title || '') + ' ' + String(e.body || '') + ' ' + String(e.chapter || '') + ' ' + String(e.date || '')).toLowerCase()
+        return hay.indexOf(q) >= 0
+      }
+      function entryAlpha(e, p) {
+        let a = 0.35 + 0.65 * a3clamp((p.z + 2.2) / 4.4, 0, 1)
+        if (focus && e.chapter !== focus) a *= 0.10
+        if (q) a *= entryMatch(e) ? 1 : 0.08
+        return a3clamp(a, 0.04, 1)
+      }
+
+      const items = [{ kind: 'core', z: core.z }]
+      layout.chapters.forEach(function (c) {
+        items.push({ kind: 'chapter', z: a3project({ x: c.ax, y: c.ay, z: c.az }, cam, w, h).z, c: c })
+      })
+      layout.nodes.forEach(function (e) {
+        const p = a3project(e, cam, w, h)
+        if (p.k <= 0 || p.k > 2400) return
+        items.push({ kind: 'entry', z: p.z, e: e, p: p })
+      })
+      items.sort(function (a, b) { return a.z - b.z })
+
+      items.forEach(function (it) {
+        if (it.kind === 'core') {
+          ctx.save()
+          ctx.beginPath()
+          ctx.arc(core.x, core.y, coreR, 0, Math.PI * 2)
+          const g = ctx.createRadialGradient(core.x - coreR * 0.34, core.y - coreR * 0.38, coreR * 0.06, core.x, core.y, coreR)
+          g.addColorStop(0, '#aab4ff')
+          g.addColorStop(0.52, '#6d7cf6')
+          g.addColorStop(1, '#8758cc')
+          ctx.fillStyle = g
+          ctx.shadowColor = 'rgba(109,124,246,.55)'
+          ctx.shadowBlur = 24
+          ctx.fill()
+          ctx.restore()
+          ctx.beginPath()
+          ctx.arc(core.x, core.y, coreR, 0, Math.PI * 2)
+          ctx.strokeStyle = 'rgba(255,255,255,.34)'
+          ctx.lineWidth = 1
+          ctx.stroke()
+          return
+        }
+        if (it.kind === 'chapter') {
+          const c = it.c
+          const p = a3project({ x: c.ax, y: c.ay, z: c.az }, cam, w, h)
+          const r = Math.max(8, 0.27 * p.k)
+          const op = focus ? (focus === c.name ? 1 : 0.25) : 1
+          ctx.beginPath()
+          ctx.arc(p.x, p.y, r * 1.9, 0, Math.PI * 2)
+          ctx.fillStyle = c.color
+          ctx.globalAlpha = 0.075 * op
+          ctx.fill()
+          ctx.beginPath()
+          ctx.arc(p.x, p.y, r, 0, Math.PI * 2)
+          const cg = ctx.createRadialGradient(p.x - r * 0.32, p.y - r * 0.38, r * 0.08, p.x, p.y, r * 1.05)
+          cg.addColorStop(0, a3mix(c.color, '#ffffff', 0.72))
+          cg.addColorStop(0.55, a3mix(c.color, '#ffffff', 0.18))
+          cg.addColorStop(1, c.color)
+          ctx.fillStyle = cg
+          ctx.globalAlpha = 0.34 * op
+          ctx.fill()
+          ctx.beginPath()
+          ctx.arc(p.x, p.y, r, 0, Math.PI * 2)
+          ctx.strokeStyle = c.color
+          ctx.globalAlpha = 0.78 * op
+          ctx.lineWidth = 1.4
+          ctx.stroke()
+          ctx.font = '600 ' + Math.round(a3clamp(r * 0.38, 9, 13)) + 'px ' + font
+          ctx.textAlign = 'center'
+          ctx.textBaseline = 'middle'
+          ctx.strokeStyle = bg
+          ctx.globalAlpha = 0.78 * op
+          ctx.lineWidth = 3
+          ctx.strokeText(c.name, p.x, p.y + 1)
+          ctx.fillStyle = c.color
+          ctx.globalAlpha = op
+          ctx.fillText(c.name, p.x, p.y + 1)
+          ctx.font = '500 9px ' + font
+          ctx.textBaseline = 'top'
+          ctx.strokeStyle = bg
+          ctx.globalAlpha = 0.7 * op
+          ctx.lineWidth = 2.6
+          ctx.strokeText(c.count + ' 条', p.x, p.y + r + 9)
+          ctx.fillStyle = muted
+          ctx.globalAlpha = 0.9 * op
+          ctx.fillText(c.count + ' 条', p.x, p.y + r + 9)
+          hits.push({ key: 'c' + c.name, type: 'chapter', x: p.x, y: p.y, r: r + 10, node: c })
+          return
+        }
+        const e = it.e
+        const p = it.p
+        const r = a3clamp((2.1 + e.imp * 0.95) * (p.k / 118), 2.2, 9)
+        const op = entryAlpha(e, p)
+        if (e.imp >= 4) {
+          ctx.beginPath()
+          ctx.arc(p.x, p.y, r * 2.6, 0, Math.PI * 2)
+          ctx.fillStyle = e.color
+          ctx.globalAlpha = 0.06 * op
+          ctx.fill()
+        }
+        ctx.beginPath()
+        ctx.arc(p.x, p.y, r, 0, Math.PI * 2)
+        const eg = ctx.createRadialGradient(p.x - r * 0.36, p.y - r * 0.42, r * 0.06, p.x, p.y, r * 1.08)
+        eg.addColorStop(0, a3mix(e.color, '#ffffff', 0.66))
+        eg.addColorStop(0.52, e.color)
+        eg.addColorStop(1, a3mix(e.color, '#101426', 0.28))
+        ctx.fillStyle = eg
+        ctx.globalAlpha = 0.95 * op
+        ctx.fill()
+        ctx.beginPath()
+        ctx.arc(p.x, p.y, r, 0, Math.PI * 2)
+        ctx.strokeStyle = bg
+        ctx.globalAlpha = 0.85 * op
+        ctx.lineWidth = 1.1
+        ctx.stroke()
+        if (q && entryMatch(e)) {
+          ctx.beginPath()
+          ctx.arc(p.x, p.y, r + 4.5, 0, Math.PI * 2)
+          ctx.strokeStyle = e.color
+          ctx.globalAlpha = 0.58
+          ctx.lineWidth = 1.2
+          ctx.stroke()
+        }
+        hits.push({ key: e.key, type: 'entry', x: p.x, y: p.y, r: r + 6, node: e })
+      })
+      ctx.globalAlpha = 1
+
+      if (hoverKey) {
+        const hv = hits.filter(function (x) { return x.key === hoverKey })[0]
+        if (hv) {
+          const hc = hv.type === 'day' ? '#6d7cf6' : ((hv.node && hv.node.color) || '#6d7cf6')
+          ctx.beginPath()
+          ctx.arc(hv.x, hv.y, hv.r + 2, 0, Math.PI * 2)
+          ctx.strokeStyle = '#ffffff'
+          ctx.globalAlpha = 0.75
+          ctx.lineWidth = 3.4
+          ctx.stroke()
+          ctx.beginPath()
+          ctx.arc(hv.x, hv.y, hv.r + 2, 0, Math.PI * 2)
+          ctx.strokeStyle = hc
+          ctx.globalAlpha = 1
+          ctx.lineWidth = 1.6
+          ctx.stroke()
+        }
+      }
+
+      const fs = Math.round(a3clamp(coreR * 0.42, 18, 27))
+      ctx.font = '700 ' + fs + 'px ' + font
+      ctx.textAlign = 'center'
+      ctx.textBaseline = 'middle'
+      ctx.fillStyle = '#ffffff'
+      ctx.globalAlpha = 1
+      ctx.fillText('我', core.x, core.y + 1)
+      ctx.font = '600 7.5px ' + font
+      ctx.fillStyle = 'rgba(255,255,255,.72)'
+      ctx.fillText('M E M O R Y   A T L A S', core.x, core.y + fs * 0.72)
+      if (!opt.totalCards) {
+        ctx.font = '500 11px ' + font
+        ctx.fillStyle = textColor
+        ctx.globalAlpha = 0.62
+        ctx.fillText('还没有记忆，先整理一次', core.x, core.y + coreR * 2.1)
+      }
+      ctx.globalAlpha = 1
+      return hits
+    }
+    /* ATLAS3D-CORE-END */
+
+    function ModeToggle(props) {
+      return h('div', { className: 'ma-mode ma-seg', role: 'group', 'aria-label': '图谱显示方式' },
+        h('button', { type: 'button', className: props.mode === '2d' ? 'on' : '', onClick: function () { props.onChange('2d') } }, '二维'),
+        h('button', { type: 'button', className: props.mode === '3d' ? 'on' : '', onClick: function () { props.onChange('3d') } }, '立体')
+      )
+    }
+
     function Graph(props) {
+      const [mode, setMode] = useState(function () {
+        try { return localStorage.getItem('dsh-memory-atlas:graph-mode') === '2d' ? '2d' : '3d' } catch (e) { return '3d' }
+      })
+      useEffect(function () {
+        try { localStorage.setItem('dsh-memory-atlas:graph-mode', mode) } catch (e) { /* 隐私模式 */ }
+      }, [mode])
+      if (mode === '3d') {
+        return h(Graph3D, Object.assign({}, props, { mode: mode, onMode: setMode }))
+      }
+      return h(Graph2D, Object.assign({}, props, { mode: mode, onMode: setMode }))
+    }
+
+    function Graph3D(props) {
+      const data = props.data
+      const wrapRef = useRef(null)
+      const canvasRef = useRef(null)
+      const camRef = useRef({ yaw: 0.60, pitch: -0.30, dist: 6.4 })
+      const dragRef = useRef(null)
+      const hoverRef = useRef('')
+      const hitsRef = useRef([])
+      const lastActRef = useRef(0)
+      const sizeRef = useRef({ w: 1, h: 1 })
+      const [dragging, setDragging] = useState(false)
+      const [tip, setTip] = useState(null)
+      const [focus, setFocus] = useState('')
+      const [theme, setTheme] = useState({ bg: '#ffffff', text: '#1b1c1f', muted: '#8a8f98' })
+      const q = String(props.query || '').trim().toLowerCase()
+      const layout = useMemo(function () { return atlas3dLayout(data) }, [data])
+      const totalCards = (data.chapters || []).reduce(function (n, c) { return n + ((c.entries || []).length) }, 0)
+      const totalDays = (data.diaries || []).length
+
+      useEffect(function () { setFocus('') }, [data])
+
+      useEffect(function () {
+        const el = wrapRef.current
+        if (!el) return
+        function read() {
+          const cs = getComputedStyle(el)
+          const next = {
+            bg: (cs.getPropertyValue('--dsw-alias-bg-layer-1') || '').trim() || '#ffffff',
+            text: (cs.getPropertyValue('--dsw-alias-label-primary') || '').trim() || '#1b1c1f',
+            muted: (cs.getPropertyValue('--dsw-alias-label-tertiary') || '').trim() || '#8a8f98',
+          }
+          setTheme(function (prev) {
+            if (prev.bg === next.bg && prev.text === next.text && prev.muted === next.muted) return prev
+            return next
+          })
+        }
+        read()
+        let mo = null
+        if (typeof MutationObserver !== 'undefined') {
+          mo = new MutationObserver(read)
+          mo.observe(document.documentElement, { attributes: true, attributeFilter: ['class', 'data-theme', 'style'] })
+        }
+        return function () { if (mo) mo.disconnect() }
+      }, [])
+
+      useEffect(function () {
+        const canvas = canvasRef.current
+        if (!canvas) return
+        const ctx = canvas.getContext('2d')
+        if (!ctx) return
+        let raf = 0
+        let last = performance.now()
+        const reduceMotion = typeof window !== 'undefined' && window.matchMedia
+          ? window.matchMedia('(prefers-reduced-motion: reduce)').matches
+          : false
+        function fit() {
+          const el = wrapRef.current
+          if (!el) return
+          const r = el.getBoundingClientRect()
+          const dpr = Math.min(window.devicePixelRatio || 1, 2)
+          const w = Math.max(1, Math.floor(r.width))
+          const h = Math.max(1, Math.floor(r.height))
+          sizeRef.current = { w: w, h: h }
+          canvas.width = Math.round(w * dpr)
+          canvas.height = Math.round(h * dpr)
+          ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
+        }
+        fit()
+        lastActRef.current = performance.now()
+        function frame(now) {
+          const dt = Math.min(64, Math.max(0, now - last))
+          last = now
+          if (!reduceMotion && !dragRef.current && !hoverRef.current && now - lastActRef.current > 2600) {
+            camRef.current.yaw += dt * 0.000012
+          }
+          const size = sizeRef.current
+          hitsRef.current = atlas3dPaint(ctx, {
+            layout: layout, cam: camRef.current, width: size.w, height: size.h,
+            theme: theme, query: q, focus: focus, hoverKey: hoverRef.current,
+            totalCards: totalCards, totalDays: totalDays,
+          })
+          raf = requestAnimationFrame(frame)
+        }
+        raf = requestAnimationFrame(frame)
+        let ro = null
+        if (typeof ResizeObserver !== 'undefined') {
+          ro = new ResizeObserver(fit)
+          ro.observe(wrapRef.current)
+        }
+        window.addEventListener('resize', fit)
+        return function () {
+          cancelAnimationFrame(raf)
+          if (ro) ro.disconnect()
+          window.removeEventListener('resize', fit)
+        }
+      }, [layout, q, focus, theme, totalCards, totalDays])
+
+      useEffect(function () {
+        const canvas = canvasRef.current
+        if (!canvas) return
+        function onWheel(ev) {
+          ev.preventDefault()
+          camRef.current.dist = a3clamp(camRef.current.dist * (ev.deltaY < 0 ? 0.92 : 1.08), 4.0, 11.0)
+          lastActRef.current = performance.now()
+        }
+        canvas.addEventListener('wheel', onWheel, { passive: false })
+        return function () { canvas.removeEventListener('wheel', onWheel) }
+      }, [])
+
+      function pos(ev) {
+        const r = canvasRef.current.getBoundingClientRect()
+        return { x: ev.clientX - r.left, y: ev.clientY - r.top }
+      }
+
+      function pick(x, y) {
+        const list = hitsRef.current
+        let best = null
+        let bd = 1e9
+        for (let i = 0; i < list.length; i++) {
+          const hh = list[i]
+          const dx = x - hh.x
+          const dy = y - hh.y
+          const d = Math.sqrt(dx * dx + dy * dy)
+          if (d <= hh.r && d < bd) { bd = d; best = hh }
+        }
+        return best
+      }
+
+      function tipFor(hit, pt) {
+        const el = wrapRef.current
+        const r = el.getBoundingClientRect()
+        let x = pt.x + 14
+        let y = pt.y + 14
+        if (x > r.width - 280) x = pt.x - 286
+        if (y > r.height - 92) y = pt.y - 84
+        const node = hit.node || {}
+        if (hit.type === 'entry') {
+          return { x: Math.max(6, x), y: Math.max(6, y), title: node.title || '记忆', body: (node.date ? node.date + ' · ' : '') + String(node.body || ''), color: node.color || '#6d7cf6' }
+        }
+        if (hit.type === 'chapter') {
+          return { x: Math.max(6, x), y: Math.max(6, y), title: node.name, body: (node.count || 0) + ' 条记忆 · 点一下聚焦，再点取消', color: node.color || '#6d7cf6' }
+        }
+        return { x: Math.max(6, x), y: Math.max(6, y), title: node.date + ' 的日记', body: (node.messages || 0) + ' 条发言 · ' + (node.cardCount || 0) + ' 条新记忆', color: '#6d7cf6' }
+      }
+
+      function onDown(ev) {
+        if (ev.button !== 0) return
+        const p = pos(ev)
+        dragRef.current = { sx: p.x, sy: p.y, yaw: camRef.current.yaw, pitch: camRef.current.pitch, moved: false }
+        setDragging(true)
+        try { ev.currentTarget.setPointerCapture(ev.pointerId) } catch (e) { /* 忽略 */ }
+      }
+
+      function onMove(ev) {
+        const p = pos(ev)
+        const d = dragRef.current
+        if (d) {
+          const dx = p.x - d.sx
+          const dy = p.y - d.sy
+          if (Math.abs(dx) + Math.abs(dy) > 3) d.moved = true
+          camRef.current.yaw = d.yaw + dx * 0.007
+          camRef.current.pitch = a3clamp(d.pitch + dy * 0.006, -1.2, 1.2)
+          lastActRef.current = performance.now()
+          if (d.moved && hoverRef.current) {
+            hoverRef.current = ''
+            setTip(null)
+          }
+          return
+        }
+        const hit = pick(p.x, p.y)
+        if (hit) {
+          if (hoverRef.current !== hit.key) {
+            hoverRef.current = hit.key
+            setTip(tipFor(hit, p))
+          }
+          if (!tip) setTip(tipFor(hit, p))
+        } else if (hoverRef.current) {
+          hoverRef.current = ''
+          setTip(null)
+        }
+      }
+
+      function onUp(ev) {
+        const d = dragRef.current
+        dragRef.current = null
+        setDragging(false)
+        try { ev.currentTarget.releasePointerCapture(ev.pointerId) } catch (e) { /* 忽略 */ }
+        lastActRef.current = performance.now()
+        if (!d || d.moved) return
+        const p = pos(ev)
+        const hit = pick(p.x, p.y)
+        if (!hit) return
+        if (hit.type === 'entry') { props.onOpenEntry(hit.node); return }
+        if (hit.type === 'day') { props.onOpenDiary(hit.node.date); return }
+        if (hit.type === 'chapter') {
+          setFocus(function (prev) { return prev === hit.node.name ? '' : hit.node.name })
+          hoverRef.current = ''
+          setTip(null)
+        }
+      }
+
+      function onLeave() {
+        if (dragRef.current) return
+        hoverRef.current = ''
+        setTip(null)
+      }
+
+      function nudge(f) {
+        camRef.current.dist = a3clamp(camRef.current.dist * f, 4.0, 11.0)
+        lastActRef.current = performance.now()
+      }
+      function reset() {
+        camRef.current = { yaw: 0.60, pitch: -0.30, dist: 6.4 }
+        setFocus('')
+        lastActRef.current = performance.now()
+      }
+
+      return h('div', { className: 'ma-graphwrap three', ref: wrapRef },
+        h('div', { style: { position: 'absolute', left: 13, top: 10, zIndex: 2, pointerEvents: 'none' } },
+          h('div', { style: { fontSize: 12, fontWeight: 600 } }, '记忆图谱'),
+          h('div', { style: { fontSize: 10.5, color: 'var(--dsw-alias-label-tertiary,#8a8f98)' } },
+            totalCards + ' 条记忆 · ' + totalDays + ' 天日记' + (focus ? ' · 聚焦「' + focus + '」' : (q ? ' · 高亮「' + props.query + '」' : ' · 立体'))
+          )
+        ),
+        h(ModeToggle, { mode: props.mode, onChange: props.onMode }),
+        h('div', { className: 'ma-zoom' },
+          h('button', { title: '放大', onClick: function () { nudge(0.92) } }, '+'),
+          h('button', { title: '缩小', onClick: function () { nudge(1.08) } }, '−'),
+          h('button', { title: '复位', onClick: reset }, '⟲')
+        ),
+        h('canvas', {
+          ref: canvasRef,
+          className: cls('ma-canvas', dragging && 'drag'),
+          role: 'img',
+          'aria-label': '立体的记忆图谱',
+          onPointerDown: onDown,
+          onPointerMove: onMove,
+          onPointerUp: onUp,
+          onPointerLeave: onLeave,
+          onDoubleClick: reset,
+        }),
+        h('div', { className: 'ma-legend' },
+          layout.chapters.map(function (c) {
+            return h('span', { key: 'l3-' + c.name }, h('i', { style: { background: c.color } }), c.name)
+          })
+        ),
+        h('div', { className: 'ma-hint' }, '拖动旋转 · 滚轮缩放 · 双击复位'),
+        tip ? h('div', { className: 'ma-tip', style: { left: tip.x, top: tip.y } },
+          h('b', { style: { color: tip.color } }, tip.title),
+          h('span', null, String(tip.body || '').slice(0, 160) + (String(tip.body || '').length > 160 ? '…' : ''))
+        ) : null
+      )
+    }
+
+    function Graph2D(props) {
       const data = props.data
       const wrapRef = useRef(null)
       const drag = useRef(null)
@@ -322,6 +1092,7 @@ window.__ModuleLoader__.load({
           h('div', { style: { fontSize: 12, fontWeight: 600 } }, '记忆图谱'),
           h('div', { style: { fontSize: 10.5, color: 'var(--dsw-alias-label-tertiary,#8a8f98)' } }, totalCards + ' 条记忆 · ' + totalDays + ' 天日记' + (q ? ' · 高亮「' + props.query + '」' : ''))
         ),
+        h(ModeToggle, { mode: props.mode, onChange: props.onMode }),
         h('div', { className: 'ma-zoom' },
           h('button', { title: '放大', onClick: function () { zoomBy(1.18) } }, '+'),
           h('button', { title: '缩小', onClick: function () { zoomBy(1 / 1.18) } }, '−'),

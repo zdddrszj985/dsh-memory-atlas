@@ -2,6 +2,7 @@ import assert from 'node:assert/strict'
 import { spawnSync } from 'node:child_process'
 import { mkdtemp, mkdir, readFile, rm, writeFile } from 'node:fs/promises'
 import { Readable } from 'node:stream'
+import { runInNewContext } from 'node:vm'
 import { fileURLToPath } from 'node:url'
 import os from 'node:os'
 import path from 'node:path'
@@ -481,7 +482,7 @@ await test('GET /status 返回版本与会话数', async () => {
   const r = await call('/status')
   assert.equal(r.status, 200)
   assert.equal(r.json.ok, true)
-  assert.equal(r.json.version, '0.1.1')
+  assert.equal(r.json.version, '0.1.2')
   assert.equal(r.json.sessions, 1)
 })
 
@@ -569,6 +570,84 @@ await test('POST /unbind 解除绑定后 /archive 返回未绑定', async () => 
 await test('未知接口回 404', async () => {
   const r = await call('/nope')
   assert.equal(r.status, 404)
+})
+
+/* --------------------------------------------------------- 立体图谱纯函数 */
+
+section('立体图谱：布局、投影与绘制')
+
+const clientSrc = await readFile(path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../client.js'), 'utf8')
+const coreMatch = clientSrc.match(/\/\* ATLAS3D-CORE-START \*\/([\s\S]*?)\/\* ATLAS3D-CORE-END \*\//)
+assert.ok(coreMatch, 'client.js 里应有 ATLAS3D-CORE 标记')
+const a3 = runInNewContext(coreMatch[1] + '\n;({ atlas3dLayout, a3project, atlas3dPaint, a3mix })', { Math, JSON, String, Number, Object, Array })
+
+const names = ['我是谁', '在做的事', '偏好与习惯', '重要决定', '人与关系', '待办与线索']
+const colors = ['#7f8cf8', '#46b894', '#e0a44e', '#d76f8b', '#4d9fd8', '#9b78d8']
+const mockData = {
+  chapters: names.map(function (name, i) {
+    return {
+      name: name,
+      color: colors[i],
+      entries: [
+        { title: name + ' 一', body: '正文', date: '2026-11-01', importance: 4 },
+        { title: name + ' 二', body: '正文', date: '2026-11-02', importance: 2 },
+      ],
+    }
+  }),
+  diaries: [
+    { date: '2026-11-01', messages: 10, cardCount: 2 },
+    { date: '2026-11-02', messages: 30, cardCount: 5 },
+    { date: '2026-11-03', messages: 6, cardCount: 1 },
+  ],
+}
+
+await test('atlas3dLayout 生成六章、全部条目与时间环', () => {
+  const layout = a3.atlas3dLayout(mockData)
+  assert.equal(layout.chapters.length, 6)
+  assert.equal(layout.nodes.length, 12)
+  assert.equal(layout.days.length, 3)
+  assert.equal(layout.totalDays, 3)
+  for (const n of layout.nodes) {
+    assert.ok(Number.isFinite(n.x) && Number.isFinite(n.y) && Number.isFinite(n.z))
+    assert.ok(n.y >= -1.96, '条目不应沉到地面以下')
+  }
+})
+
+await test('a3project 在默认相机下给出有限坐标', () => {
+  const cam = { yaw: 0.6, pitch: -0.3, dist: 6.4 }
+  for (const p of [{ x: 0, y: 0, z: 0 }, { x: 1, y: -1, z: 2 }, { x: -2, y: 2, z: -1 }]) {
+    const s = a3.a3project(p, cam, 1400, 620)
+    assert.ok(Number.isFinite(s.x) && Number.isFinite(s.y) && Number.isFinite(s.k))
+    assert.ok(s.k > 0)
+  }
+})
+
+await test('atlas3dPaint 用假 ctx 不抛错并返回可点击命中', () => {
+  const gradient = { addColorStop: function () {} }
+  const base = {
+    createRadialGradient: function () { return gradient },
+    createLinearGradient: function () { return gradient },
+    measureText: function () { return { width: 10 } },
+  }
+  const fake = new Proxy(base, {
+    get: function (t, k) { if (k in t) return t[k]; return function () {} },
+    set: function () { return true },
+  })
+  const layout = a3.atlas3dLayout(mockData)
+  const hits = a3.atlas3dPaint(fake, {
+    layout: layout,
+    cam: { yaw: 0.6, pitch: -0.3, dist: 6.4 },
+    width: 1400, height: 620,
+    theme: { bg: '#ffffff', text: '#1b1c1f', muted: '#8a8f98' },
+    query: '一', focus: '', hoverKey: '', totalCards: 12, totalDays: 3,
+  })
+  assert.equal(hits.length, 12 + 6 + 3)
+  assert.ok(hits.every(function (h) { return Number.isFinite(h.x) && Number.isFinite(h.y) && h.r > 0 }))
+})
+
+await test('a3mix 在白底和深色之间插值', () => {
+  assert.equal(a3.a3mix('#000000', '#ffffff', 0.5), 'rgb(128,128,128)')
+  assert.equal(a3.a3mix('#7f8cf8', '#ffffff', 0.66), 'rgb(211,216,253)')
 })
 
 /* -------------------------------------------------------------- 语法检查 */
