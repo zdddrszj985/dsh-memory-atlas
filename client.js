@@ -802,22 +802,24 @@ window.__ModuleLoader__.load({
           canvas.width = Math.round(w * dpr)
           canvas.height = Math.round(h * dpr)
           ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
+          lastActRef.current = performance.now()
         }
         fit()
         lastActRef.current = performance.now()
+        let lastPaint = 0
         function frame(now) {
+          raf = requestAnimationFrame(frame)
+          if (now - lastPaint < 32) return
+          lastPaint = now
           const dt = Math.min(64, Math.max(0, now - last))
           last = now
-          if (!reduceMotion && !dragRef.current && !hoverRef.current && now - lastActRef.current > 2600) {
-            camRef.current.yaw += dt * 0.000012
-          }
+          if (!dragRef.current && !hoverRef.current && now - lastActRef.current > 2500) return
           const size = sizeRef.current
           hitsRef.current = atlas3dPaint(ctx, {
             layout: layout, cam: camRef.current, width: size.w, height: size.h,
             theme: theme, query: q, focus: focus, hoverKey: hoverRef.current,
             totalCards: totalCards, totalDays: totalDays,
           })
-          raf = requestAnimationFrame(frame)
         }
         raf = requestAnimationFrame(frame)
         let ro = null
