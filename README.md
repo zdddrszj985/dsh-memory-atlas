@@ -39,6 +39,8 @@ dsh plugin --profile desktop add ./dsh-memory-atlas
 
 `add` 后面的路径换成你实际克隆到的目录即可。装完重启 DSH（或让 HMR 接管），侧栏会出现「忆库」。
 
+如果侧栏没出现，检查 `~/.dsh/profiles/<profile>/package.json` 的 `dsh.profile.bundles` 数组里有没有 `dsh-memory-atlas`；没有就手动补上再重启。
+
 ### 方式二：手工 link（没有 CLI 时）
 
 在 profile 目录里建一个链接，并把包名写进 profile 的 `package.json`：
