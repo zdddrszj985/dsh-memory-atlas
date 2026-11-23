@@ -1,0 +1,4 @@
+- insert:
+    - id: memory-atlas
+      name: dsh-memory-atlas
+      config: {}

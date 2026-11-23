@@ -1,0 +1,265 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>忆库 · 记忆图谱</title>
+<style>
+*{box-sizing:border-box}
+html,body{margin:0;padding:0;background:#eef1f7}
+body{font-family:"Segoe UI","Microsoft YaHei UI","PingFang SC",sans-serif;color:#1f2637;-webkit-font-smoothing:antialiased}
+.app{width:1600px;height:1000px;display:flex;flex-direction:column;background:#f7f8fc;overflow:hidden}
+.top{height:86px;flex:0 0 86px;display:flex;align-items:center;padding:0 30px;background:linear-gradient(180deg,#ffffff 0%,#fcfcff 100%);border-bottom:1px solid #e9ebf4}
+.logo{width:46px;height:46px;border-radius:13px;background:linear-gradient(140deg,#7d7bf3,#5e6fe6 55%,#4f8fe0);display:flex;align-items:center;justify-content:center;box-shadow:0 8px 18px rgba(96,108,232,.32);flex:0 0 46px}
+.brand{display:flex;align-items:center;gap:14px;min-width:0}
+.brand h1{font-size:21px;line-height:1.1;margin:0;font-weight:650;letter-spacing:.5px}
+.brand p{margin:7px 0 0;font-size:11.5px;color:#858da3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:620px}
+.tools{margin-left:auto;display:flex;align-items:center;gap:10px}
+.search{width:286px;height:38px;border:1px solid #e6e8f2;background:#f6f7fb;border-radius:10px;display:flex;align-items:center;gap:9px;padding:0 12px;color:#9aa1b4;font-size:12.5px}
+.search svg{opacity:.7}
+.kbd{margin-left:auto;font-size:10px;color:#a7adc0;border:1px solid #e4e6ef;background:#fff;border-radius:5px;padding:1px 5px}
+.select{height:38px;min-width:238px;border:1px solid #e2e5f0;background:#fff;border-radius:10px;display:flex;align-items:center;gap:9px;padding:0 12px;font-size:12.5px;font-weight:550;color:#39415a;box-shadow:0 1px 2px rgba(31,38,55,.03)}
+.dot{width:7px;height:7px;border-radius:50%;background:#46b894;box-shadow:0 0 0 3px rgba(70,184,148,.13);flex:0 0 7px}
+.select .txt{flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.select .chev{color:#9aa1b4;margin-left:2px}
+.btn{height:38px;border:0;border-radius:10px;padding:0 16px;font-size:12.5px;font-weight:600;cursor:pointer;font-family:inherit}
+.btn.primary{color:#fff;background:linear-gradient(135deg,#6d7cf1,#4f63e4);box-shadow:0 6px 14px rgba(88,103,229,.28)}
+.btn.ghost{width:38px;padding:0;border:1px solid #e2e5f0;background:#fff;color:#7a8298;font-size:15px}
+.tabs{height:56px;flex:0 0 56px;display:flex;align-items:stretch;gap:30px;padding:0 30px;background:#fff;border-bottom:1px solid #e9ebf4}
+.tab{display:flex;align-items:center;gap:8px;font-size:13.5px;color:#6b7488;position:relative;cursor:default;font-weight:550}
+.tab.active{color:#3d4bd0;font-weight:650}
+.tab.active:after{content:"";position:absolute;left:-2px;right:-2px;bottom:-1px;height:2.5px;border-radius:2px;background:linear-gradient(90deg,#7d7bf3,#4f8fe0)}
+.tab .count{font-size:10px;line-height:1;padding:3px 6px;border-radius:8px;background:#eef0f8;color:#7c849b;font-weight:600}
+.tab.active .count{background:#e9ecff;color:#4f5fd8}
+.sync{margin-left:auto;display:flex;align-items:center;gap:7px;font-size:11px;color:#8b93a8}
+.sync i{width:6px;height:6px;border-radius:50%;background:#46b894;display:block}
+main{flex:1;padding:22px 30px 26px;min-height:0}
+.card{height:100%;background:#fff;border:1px solid #e7e9f3;border-radius:18px;box-shadow:0 12px 34px rgba(29,38,80,.07);display:flex;flex-direction:column;overflow:hidden;position:relative}
+.card-head{height:72px;flex:0 0 72px;display:flex;align-items:center;padding:0 22px 0 24px}
+.card-head h2{font-size:15.5px;margin:0;font-weight:650;letter-spacing:.3px}
+.card-head p{margin:6px 0 0;font-size:11.5px;color:#8b93a8}
+.card-head p b{color:#5a6480;font-weight:600}
+.head-right{margin-left:auto;display:flex;align-items:center;gap:8px}
+.chip{height:27px;display:flex;align-items:center;gap:6px;padding:0 10px;border-radius:8px;background:#f6f7fc;border:1px solid #edeff7;font-size:10.5px;color:#7d859b}
+.chip b{color:#4f5a74;font-weight:650}
+.zoom{display:flex;border:1px solid #e6e8f2;border-radius:8px;overflow:hidden;background:#fff;margin-left:4px}
+.zoom span{width:30px;height:27px;display:flex;align-items:center;justify-content:center;color:#7c849b;font-size:13px;border-right:1px solid #eef0f7}
+.zoom span:last-child{border-right:0}
+.graph-wrap{flex:1;min-height:0;position:relative;padding:0 8px;background:radial-gradient(ellipse 700px 380px at 50% 44%,rgba(125,123,243,.055),transparent 70%),radial-gradient(ellipse 460px 300px at 84% 24%,rgba(70,184,148,.06),transparent 70%),radial-gradient(ellipse 420px 280px at 18% 78%,rgba(155,120,216,.055),transparent 72%)}
+.graph-wrap svg{width:100%;height:100%;display:block}
+.foot{height:44px;flex:0 0 44px;border-top:1px solid #f0f1f8;display:flex;align-items:center;gap:18px;padding:0 24px;font-size:11px;color:#7d859b}
+.foot .item{display:flex;align-items:center;gap:6px}
+.foot .sw{width:8px;height:8px;border-radius:50%;display:block}
+.foot .note{margin-left:auto;color:#a0a6b8;font-size:10.5px}
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="top">
+    <div class="brand">
+      <div class="logo">
+        <svg width="26" height="26" viewBox="0 0 32 32" fill="none">
+          <path d="M16 5.5v8M16 18.5v8M5.5 16h8M18.5 16h8" stroke="#fff" stroke-width="2.4" stroke-linecap="round"/>
+          <circle cx="16" cy="16" r="4.2" fill="#fff"/>
+          <circle cx="16" cy="5.5" r="2.1" fill="#fff" opacity=".9"/>
+          <circle cx="16" cy="26.5" r="2.1" fill="#fff" opacity=".9"/>
+          <circle cx="5.5" cy="16" r="2.1" fill="#fff" opacity=".9"/>
+          <circle cx="26.5" cy="16" r="2.1" fill="#fff" opacity=".9"/>
+        </svg>
+      </div>
+      <div>
+        <h1>忆库</h1>
+        <p>用B站视频开发记忆档案插件 &nbsp;·&nbsp; ~/Documents/忆库/用B站视频开发记忆档案插件-a1b2c3d4</p>
+      </div>
+    </div>
+    <div class="tools">
+      <div class="search">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><circle cx="11" cy="11" r="7" stroke="#8f97ab" stroke-width="2"/><path d="m16.5 16.5 4 4" stroke="#8f97ab" stroke-width="2" stroke-linecap="round"/></svg>
+        搜记忆、人、决定…
+        <span class="kbd">Ctrl K</span>
+      </div>
+      <div class="select"><span class="dot"></span><span class="txt">用B站视频开发记忆档案插件</span><span class="chev">⌄</span></div>
+      <button class="btn primary">继续整理</button>
+      <button class="btn ghost">↻</button>
+    </div>
+  </header>
+  <nav class="tabs">
+    <div class="tab active">图谱</div>
+    <div class="tab">记忆卡 <span class="count">128</span></div>
+    <div class="tab">日记 <span class="count">46</span></div>
+    <div class="tab">设置</div>
+    <div class="sync"><i></i>已整理到 11-23 15:24</div>
+  </nav>
+  <main>
+    <section class="card">
+      <div class="card-head">
+        <div>
+          <h2>记忆图谱</h2>
+          <p><b>128</b> 条记忆 &nbsp;·&nbsp; <b>46</b> 天日记 &nbsp;·&nbsp; <b>6</b> 个章节 &nbsp;·&nbsp; 最近写入 11-23 15:24</p>
+        </div>
+        <div class="head-right">
+          <div class="chip"><b>128</b> 记忆</div>
+          <div class="chip"><b>46</b> 天</div>
+          <div class="chip"><b>6</b> 章</div>
+          <div class="zoom"><span>+</span><span>−</span><span>⟳</span></div>
+        </div>
+      </div>
+      <div class="graph-wrap">
+        <svg id="graph" viewBox="0 0 1400 640" preserveAspectRatio="xMidYMid meet"></svg>
+      </div>
+      <div class="foot">
+        <div class="item"><span class="sw" style="background:#7f8cf8"></span>我是谁</div>
+        <div class="item"><span class="sw" style="background:#46b894"></span>在做的事</div>
+        <div class="item"><span class="sw" style="background:#e0a44e"></span>偏好与习惯</div>
+        <div class="item"><span class="sw" style="background:#d76f8b"></span>重要决定</div>
+        <div class="item"><span class="sw" style="background:#4d9fd8"></span>人与关系</div>
+        <div class="item"><span class="sw" style="background:#9b78d8"></span>待办与线索</div>
+        <div class="note">点越大越重要 · 点开条目可看原文与日期</div>
+      </div>
+    </section>
+  </main>
+</div>
+<script>
+var NS="http://www.w3.org/2000/svg";
+var svg=document.getElementById("graph");
+function el(n,a,p){var e=document.createElementNS(NS,n);for(var k in a){e.setAttribute(k,a[k]);}if(p){p.appendChild(e);}return e;}
+function tx(x,y,s,a,p){var e=el("text",Object.assign({x:x,y:y,"text-anchor":"middle","dominant-baseline":"central"},a||{}),p);e.textContent=s;return e;}
+function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;var t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return ((t^t>>>14)>>>0)/4294967296;}}
+var rnd=mulberry32(20261123);
+function gauss(){var u=0,v=0;while(u===0){u=rnd();}while(v===0){v=rnd();}return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v);}
+var defs=el("defs",{},svg);
+var bgPat=el("pattern",{id:"dots",width:"26",height:"26",patternUnits:"userSpaceOnUse"},defs);
+el("circle",{cx:"1.2",cy:"1.2",r:"1.1",fill:"#d8dcec","fill-opacity":".55"},bgPat);
+el("rect",{x:"0",y:"0",width:"1400",height:"640",fill:"url(#dots)"},svg);
+var core=el("radialGradient",{id:"core",cx:"35%",cy:"28%",r:"80%"},defs);
+el("stop",{offset:"0%","stop-color":"#9186fb"},core);
+el("stop",{offset:"55%","stop-color":"#6d75ea"},core);
+el("stop",{offset:"100%","stop-color":"#4f63d8"},core);
+var glow=el("radialGradient",{id:"glow"},defs);
+el("stop",{offset:"0%","stop-color":"#7d7bf3","stop-opacity":".30"},glow);
+el("stop",{offset:"55%","stop-color":"#7d7bf3","stop-opacity":".10"},glow);
+el("stop",{offset:"100%","stop-color":"#7d7bf3","stop-opacity":"0"},glow);
+var CH=[
+{n:"我是谁",c:"#7f8cf8",k:"self",cnt:12,a:-90},
+{n:"在做的事",c:"#46b894",k:"work",cnt:31,a:-30},
+{n:"偏好与习惯",c:"#e0a44e",k:"habit",cnt:24,a:30},
+{n:"重要决定",c:"#d76f8b",k:"decide",cnt:18,a:90},
+{n:"人与关系",c:"#4d9fd8",k:"people",cnt:15,a:150},
+{n:"待办与线索",c:"#9b78d8",k:"todo",cnt:28,a:210}
+];
+var CX=700,CY=300,RX=470,RY=195;
+CH.forEach(function(ch){
+var g=el("radialGradient",{id:"g-"+ch.k,cx:"50%",cy:"35%",r:"75%"},defs);
+el("stop",{offset:"0%","stop-color":ch.c,"stop-opacity":".20"},g);
+el("stop",{offset:"100%","stop-color":ch.c,"stop-opacity":".07"},g);
+var rad=ch.a*Math.PI/180;
+ch.x=CX+RX*Math.cos(rad);ch.y=CY+RY*Math.sin(rad);
+ch.ux=Math.cos(rad);ch.uy=Math.sin(rad);
+ch.tx=-Math.sin(rad);ch.ty=Math.cos(rad);
+});
+var linkLayer=el("g",{},svg), dotLayer=el("g",{},svg), nodeLayer=el("g",{},svg), labelLayer=el("g",{},svg);
+CH.forEach(function(ch){
+  var x1=CX+105*ch.ux,y1=CY+105*ch.uy,x2=ch.x-52*ch.ux,y2=ch.y-52*ch.uy;
+  el("line",{x1:x1,y1:y1,x2:x2,y2:y2,stroke:ch.c,"stroke-width":7,"stroke-opacity":".045","stroke-linecap":"round"},linkLayer);
+  el("line",{x1:x1,y1:y1,x2:x2,y2:y2,stroke:ch.c,"stroke-width":1.4,"stroke-opacity":".30","stroke-linecap":"round"},linkLayer);
+});
+var allDots=[];
+CH.forEach(function(ch){
+  ch.dots=[];
+  var tries=0;
+  while(ch.dots.length<ch.cnt && tries<6000){
+    tries++;
+    var t=gauss()*92;
+    var out=72+Math.abs(gauss())*52;
+    var x=ch.x+ch.tx*t+ch.ux*out;
+    var y=ch.y+ch.ty*t+ch.uy*out;
+    if(y>540){y=540-(y-540)*.4;}
+    if(y<34){y=34+(34-y)*.4;}
+    if(x<36){x=36+(36-x)*.4;}
+    if(x>1364){x=1364-(x-1364)*.4;}
+    var dcx=x-CX,dcy=y-CY;
+    if(Math.sqrt(dcx*dcx+dcy*dcy)<178){continue;}
+    var ddx=x-ch.x,ddy=y-ch.y;
+    if(ddx*ddx+ddy*ddy<3844){continue;}
+    if(Math.abs(x-ch.x)<36 && y>ch.y+56 && y<ch.y+90){continue;}
+    var ok=true;
+    for(var i=0;i<ch.dots.length;i++){var p=ch.dots[i];var dx=p.x-x,dy=p.y-y;if(dx*dx+dy*dy<92){ok=false;break;}}
+    if(!ok){continue;}
+    ch.dots.push({x:x,y:y,r:2.7+rnd()*4.1,o:.48+rnd()*.42,imp:rnd()});
+  }
+  allDots=allDots.concat(ch.dots);
+});
+for(var s=0;s<18;s++){
+  var a=allDots[Math.floor(rnd()*allDots.length)],b=allDots[Math.floor(rnd()*allDots.length)];
+  if(!a||!b||a===b){continue;}
+  var mx=(a.x+b.x)/2+(rnd()-.5)*80,my=(a.y+b.y)/2+(rnd()-.5)*80;
+  el("path",{d:"M"+a.x.toFixed(1)+" "+a.y.toFixed(1)+" Q"+mx.toFixed(1)+" "+my.toFixed(1)+" "+b.x.toFixed(1)+" "+b.y.toFixed(1),fill:"none",stroke:"#8b93c8","stroke-width":".8","stroke-opacity":".16"},linkLayer);
+}
+CH.forEach(function(ch){
+  ch.dots.forEach(function(p){
+    el("circle",{cx:p.x,cy:p.y,r:p.r+2.6,fill:ch.c,"fill-opacity":".10"},dotLayer);
+    el("circle",{cx:p.x,cy:p.y,r:p.r,fill:ch.c,"fill-opacity":p.o},dotLayer);
+  });
+});
+CH.forEach(function(ch){
+  el("circle",{cx:ch.x,cy:ch.y,r:66,fill:ch.c,"fill-opacity":".075"},nodeLayer);
+  el("circle",{cx:ch.x,cy:ch.y,r:50,fill:"url(#g-"+ch.k+")",stroke:ch.c,"stroke-opacity":".55","stroke-width":"1.4"},nodeLayer);
+  el("circle",{cx:ch.x,cy:ch.y,r:41,fill:"#ffffff","fill-opacity":".82"},nodeLayer);
+  tx(ch.x,ch.y,ch.n,{"font-size":ch.n.length>3?"13":"14.5","font-weight":"650",fill:ch.c,"letter-spacing":".4"},nodeLayer);
+  var pw=ch.cnt>9?58:52;
+  el("rect",{x:ch.x-pw/2,y:ch.y+62,width:pw,height:21,rx:10.5,fill:"#fff",stroke:ch.c,"stroke-opacity":".26"},nodeLayer);
+  tx(ch.x,ch.y+72.6,ch.cnt+" 条",{"font-size":"10.5","font-weight":"650",fill:ch.c,"letter-spacing":".2"},nodeLayer);
+});
+el("circle",{cx:CX,cy:CY,r:168,fill:"url(#glow)"},nodeLayer);
+el("circle",{cx:CX,cy:CY,r:112,fill:"none",stroke:"#cfd3ea","stroke-width":"1","stroke-dasharray":"2 7","stroke-opacity":".85"},nodeLayer);
+function arcPath(cx,cy,r,a0,a1){var p0=[cx+r*Math.cos(a0*Math.PI/180),cy+r*Math.sin(a0*Math.PI/180)];var p1=[cx+r*Math.cos(a1*Math.PI/180),cy+r*Math.sin(a1*Math.PI/180)];var large=(a1-a0)>180?1:0;return "M"+p0[0].toFixed(2)+" "+p0[1].toFixed(2)+" A"+r+" "+r+" 0 "+large+" 1 "+p1[0].toFixed(2)+" "+p1[1].toFixed(2);}
+var arcs=[{a:0,b:56,c:"#7f8cf8"},{a:60,b:116,c:"#46b894"},{a:120,b:176,c:"#e0a44e"},{a:180,b:236,c:"#d76f8b"},{a:240,b:296,c:"#4d9fd8"},{a:300,b:356,c:"#9b78d8"}];
+arcs.forEach(function(a){el("path",{d:arcPath(CX,CY,101,a.a,a.b),fill:"none",stroke:a.c,"stroke-width":"6","stroke-linecap":"round","stroke-opacity":".55"},nodeLayer);});
+el("circle",{cx:CX,cy:CY,r:74,fill:"url(#core)",filter:"drop-shadow(0 16px 26px rgba(83,94,206,.35))"},nodeLayer);
+el("circle",{cx:CX,cy:CY,r:74,fill:"none",stroke:"#ffffff","stroke-opacity":".25","stroke-width":"1.2"},nodeLayer);
+tx(CX,CY-6,"我",{"font-size":"40","font-weight":"700",fill:"#ffffff","letter-spacing":"1"},nodeLayer);
+tx(CX,CY+30,"MEMORY ATLAS",{"font-size":"8.5","font-weight":"650",fill:"#ffffff","fill-opacity":".72","letter-spacing":"2.6"},nodeLayer);
+function nearestDot(ch,x,y){var best=null,bd=1e9;ch.dots.forEach(function(p){var dx=p.x-x,dy=p.y-y,d=dx*dx+dy*dy;if(d<bd){bd=d;best=p;}});return best;}
+var labels=[
+{ch:1,x:1150,y:88,w:126,t:"iPhone 横屏插件",dx:1188,dy:122},
+{ch:3,x:790,y:520,w:130,t:"cloudflared 隧道",dx:790,dy:520},
+{ch:5,x:92,y:92,w:88,t:"保研时间线",dx:92,dy:92}
+];
+labels.forEach(function(L){
+  var ch=CH[L.ch];var p=nearestDot(ch,L.dx,L.dy);if(!p){return;}
+  el("line",{x1:L.x+L.w/2,y1:L.y+13,x2:p.x,y2:p.y,stroke:ch.c,"stroke-width":"1","stroke-opacity":".40","stroke-dasharray":"2 3"},labelLayer);
+  el("circle",{cx:p.x,cy:p.y,r:p.r+4.5,fill:"#fff","fill-opacity":".9"},labelLayer);
+  el("circle",{cx:p.x,cy:p.y,r:p.r+1.8,fill:ch.c,"fill-opacity":".9"},labelLayer);
+  el("rect",{x:L.x,y:L.y,width:L.w,height:26,rx:13,fill:"#ffffff",stroke:ch.c,"stroke-opacity":".22",filter:"drop-shadow(0 3px 8px rgba(33,41,78,.08))"},labelLayer);
+  tx(L.x+L.w/2,L.y+13.5,L.t,{"font-size":"11","font-weight":"600",fill:"#4c556e"},labelLayer);
+});
+var TL=el("g",{},svg);
+var TX0=102,TX1=1298,TY=588;
+el("line",{x1:TX0,y1:TY,x2:TX1,y2:TY,stroke:"#e2e5f0","stroke-width":"1.3","stroke-linecap":"round"},TL);
+var start=new Date(2026,6,8),end=new Date(2026,11,23);
+var total=Math.round((end-start)/86400000);
+var monthNames=["7月","8月","9月","10月","11月"];
+for(var m=7;m<=11;m++){var d=new Date(2026,m-1,1);if(d<start){d=start;}var xx=TX0+((d-start)/86400000)/total*(TX1-TX0);el("line",{x1:xx,y1:TY-4,x2:xx,y2:TY+5,stroke:"#e1e4ef","stroke-width":"1"},TL);tx(xx,613,monthNames[m-7],{"font-size":"10.5",fill:"#8f97ab","font-weight":"550"},TL);}
+var weekBars=el("g",{"fill-opacity":".05"},TL);
+for(var w=0;w<23;w++){var h=10+Math.abs(Math.sin(w*.9))*44;el("rect",{x:TX0+w*52,y:TY-h,width:32,height:h,rx:4,fill:"#6d75c9"},weekBars);}
+tx(TX0,TY-22,"时间河 · 46 天",{"font-size":"10.5",fill:"#8b93a8","text-anchor":"start","font-weight":"550"},TL);
+tx(TX1,TY-22,"今天",{"font-size":"10.5",fill:"#6b7488","text-anchor":"end","font-weight":"600"},TL);
+var tlData=[];
+for(var i=0;i<=total;i++){
+  var w=2.2+Math.abs(Math.sin(i*.37))*3.4+Math.max(0,4-Math.abs(i-total)*.22);
+  tlData.push({i:i,x:TX0+i/total*(TX1-TX0),w:w});
+}
+var maxW=0;tlData.forEach(function(p){if(p.w>maxW){maxW=p.w;}});
+tlData.forEach(function(p){
+  var col=CH[Math.floor(rnd()*CH.length)].c;
+  var r=2.4+p.w/maxW*3.4;
+  var yy=TY-2-Math.sin(p.i*.55)*6-r*.2;
+  el("circle",{cx:p.x,cy:yy,r:r+2,fill:col,"fill-opacity":".08"},TL);
+  el("circle",{cx:p.x,cy:yy,r:r,fill:col,"fill-opacity":".72"},TL);
+});
+el("circle",{cx:TX1,cy:TY-6,r:9,fill:"#6d75ea","fill-opacity":".13"},TL);
+el("circle",{cx:TX1,cy:TY-6,r:4,fill:"#5b67e0"},TL);
+el("circle",{cx:TX1,cy:TY-6,r:4,fill:"none",stroke:"#fff","stroke-width":"1.4"},TL);
+</script>
+</body>
+</html>

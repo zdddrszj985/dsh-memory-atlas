@@ -1,0 +1,62 @@
+{
+  "name": "dsh-memory-atlas",
+  "version": "0.1.1",
+  "description": "把 DSH 会话整理成按天存档的长期记忆：记忆卡、日记、原始对话，以及可缩放的记忆图谱。",
+  "keywords": [
+    "dsh",
+    "dsh-plugin",
+    "memory",
+    "diary",
+    "visualization",
+    "session"
+  ],
+  "license": "MIT",
+  "author": "zdddrszj985",
+  "homepage": "https://github.com/zdddrszj985/dsh-memory-atlas#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/zdddrszj985/dsh-memory-atlas.git"
+  },
+  "bugs": {
+    "url": "https://github.com/zdddrszj985/dsh-memory-atlas/issues"
+  },
+  "type": "module",
+  "main": "./index.js",
+  "exports": {
+    ".": "./index.js",
+    "./client": "./client.js",
+    "./icon": "./icon.svg"
+  },
+  "files": [
+    "index.js",
+    "client.js",
+    "cordis.patch.yml",
+    "lib",
+    "tests",
+    "docs",
+    "icon.svg",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "dsh": ">=0.2.0",
+    "node": ">=22"
+  },
+  "scripts": {
+    "test": "node tests/selftest.mjs"
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "platform": "web",
+      "immediately": true,
+      "inject": [
+        "@deepseek-ai/dsh-client-runtime",
+        "@deepseek-ai/dsh-client-ui-settings",
+        "@deepseek-ai/dsh-client-ui-settings-plugins"
+      ]
+    }
+  }
+}
